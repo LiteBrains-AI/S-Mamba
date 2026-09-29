@@ -1,0 +1,89 @@
+Tested on 100 samples, each sequence length 1000. # It's recommended to test on Google Colab
+
+Device: cpu
+
+Total samples : 100
+Train samples : 80
+Test samples  : 20
+
+---
+
+PS D:\S-Mamba> & C:\Users\HP\AppData\Local\Programs\Python\Python313\python.exe d:/S-Mamba/mamba_baseline.py
+Device: cpu
+Generating hard dataset: 100%|█████████████████████████████████████████████████████████████████████████████████████████| 100/100 [00:00<00:00, 653.78it/s]
+
+Hard dataset generated in: dataset
+Total samples : 100
+Train samples : 80
+Test samples  : 20
+
+Model:
+WaveMamba(
+  (input_projection): Linear(in_features=1, out_features=64, bias=True)
+  (layers): ModuleList(
+    (0-1): 2 x SmallMambaBlock(
+      (in_proj): Linear(in_features=64, out_features=256, bias=True)
+      (conv): Conv1d(128, 128, kernel_size=(4,), stride=(1,), padding=(3,), groups=128)
+      (x_proj): Linear(in_features=128, out_features=33, bias=True)
+      (dt_proj): Linear(in_features=1, out_features=128, bias=True)
+      (out_proj): Linear(in_features=128, out_features=64, bias=True)
+    )
+  )
+  (output): Linear(in_features=64, out_features=1, bias=True)
+)
+
+Parameters: 64387
+Epoch 01/10 | Train MSE: 0.322104 | Test MSE: 0.310492
+Epoch 02/10 | Train MSE: 0.321526 | Test MSE: 0.310551
+Epoch 03/10 | Train MSE: 0.320527 | Test MSE: 0.308199
+Epoch 04/10 | Train MSE: 0.316558 | Test MSE: 0.297429
+Epoch 05/10 | Train MSE: 0.299466 | Test MSE: 0.253729
+Epoch 06/10 | Train MSE: 0.233666 | Test MSE: 0.145558
+Epoch 07/10 | Train MSE: 0.214323 | Test MSE: 0.120330
+Epoch 08/10 | Train MSE: 0.132462 | Test MSE: 0.147762
+Epoch 09/10 | Train MSE: 0.156517 | Test MSE: 0.142187
+Epoch 10/10 | Train MSE: 0.134486 | Test MSE: 0.087559
+
+
+PS D:\S-Mamba> & C:\Users\HP\AppData\Local\Programs\Python\Python313\python.exe d:/S-Mamba/main.py
+Device: cpu
+Generating hard dataset: 100%|█████████████████████████████████████████████████████████████████████████████████████████| 100/100 [00:00<00:00, 630.42it/s]
+
+Hard dataset generated in: dataset
+Samples: 100
+Train: 80
+Test : 20
+
+Model:
+SMamba(
+  (input_proj): Linear(in_features=1, out_features=64, bias=True)
+  (layers): ModuleList(
+    (0-1): 2 x SMambaBlock(
+      (in_proj): Linear(in_features=64, out_features=256, bias=True)
+      (conv1d): Conv1d(128, 128, kernel_size=(4,), stride=(1,), padding=(3,), groups=128)
+      (x_proj): Linear(in_features=128, out_features=33, bias=True)
+      (dt_proj): Linear(in_features=1, out_features=128, bias=True)
+      (out_proj): Linear(in_features=128, out_features=64, bias=True)
+      (support): Support()
+      (energy): Energy()
+    )
+  )
+  (norm): LayerNorm((64,), eps=1e-05, elementwise_affine=True, bias=True)
+)
+
+Parameters: 64450
+Epoch 01 | Train MSE: 0.527693 | Test MSE: 0.461571
+Epoch 02 | Train MSE: 0.452185 | Test MSE: 0.419324
+Epoch 03 | Train MSE: 0.400338 | Test MSE: 0.358554
+Epoch 04 | Train MSE: 0.337762 | Test MSE: 0.300463
+Epoch 05 | Train MSE: 0.280581 | Test MSE: 0.299341
+Epoch 06 | Train MSE: 0.279455 | Test MSE: 0.244183
+Epoch 07 | Train MSE: 0.216808 | Test MSE: 0.186536
+Epoch 08 | Train MSE: 0.163509 | Test MSE: 0.172580
+Epoch 09 | Train MSE: 0.155691 | Test MSE: 0.168069
+Epoch 10 | Train MSE: 0.166083 | Test MSE: 0.163366
+S-Mamba training complete.
+
+Saved:
+  inspection/training_history.json
+  inspection/s_mamba_inspection.json

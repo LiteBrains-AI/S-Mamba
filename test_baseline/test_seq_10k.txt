@@ -1,0 +1,44 @@
+Tested on 10 samples, each sequence length 10000. (10 samples only, because takes much time for long sequence)
+
+Device: cuda (GPU) # On Google Colab
+
+Total samples : 10
+Train samples : 8
+Test samples  : 2
+
+---
+Tested on Long sequence (10k)
+
+Normal Mamba (~10 minutes)
+Parameters: 64387
+Epoch 01/10 | Train MSE: 0.315914 | Test MSE: 0.233302
+Epoch 02/10 | Train MSE: 0.309436 | Test MSE: 0.215854
+Epoch 03/10 | Train MSE: 0.248930 | Test MSE: 0.173077
+Epoch 04/10 | Train MSE: 0.495278 | Test MSE: 0.154533
+Epoch 05/10 | Train MSE: 0.226316 | Test MSE: 0.188908
+Epoch 06/10 | Train MSE: 0.262229 | Test MSE: 0.197991
+Epoch 07/10 | Train MSE: 0.267705 | Test MSE: 0.196383
+Epoch 08/10 | Train MSE: 0.259101 | Test MSE: 0.183721
+Epoch 09/10 | Train MSE: 0.229699 | Test MSE: 0.147931
+Epoch 10/10 | Train MSE: 0.162363 | Test MSE: 0.092045
+
+S-Mamba (~28 minutes)
+S-Mamba parameters: 64450
+Epoch 01 | Train MSE: 0.470891 | Test MSE: 0.349138
+Epoch 02 | Train MSE: 0.358359 | Test MSE: 0.221367
+Epoch 03 | Train MSE: 0.282800 | Test MSE: 0.170128
+Epoch 04 | Train MSE: 0.190714 | Test MSE: 0.098630
+Epoch 05 | Train MSE: 0.183269 | Test MSE: 0.119663
+Epoch 06 | Train MSE: 0.154639 | Test MSE: 0.075211
+Epoch 07 | Train MSE: 0.113967 | Test MSE: 0.059817
+Epoch 08 | Train MSE: 0.094185 | Test MSE: 0.051473
+Epoch 09 | Train MSE: 0.073875 | Test MSE: 0.036857
+Epoch 10 | Train MSE: 0.052223 | Test MSE: 0.032958
+
+Note: 
+
+S-Mamba takes 3x time in training because of python loop. Can be optimized later
+Inference time is relatively fast. 1s per 1000 sequence length.
+1000 -> 1s
+2000 -> 2s
+10000 -> 10s
