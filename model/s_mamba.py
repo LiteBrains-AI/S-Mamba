@@ -205,9 +205,7 @@ class SMambaBlock(nn.Module):
             dim=-1
         )
 
-        # z is retained as part of the original Mamba-style
-        # projection structure, but is no longer used as an
-        # additional GELU output gate.
+        # z is retained as part of the original Mamba-style projection structure.
 
         del z
 
@@ -381,8 +379,7 @@ class SMambaBlock(nn.Module):
             #
             # The gate does not destroy h.
             #
-            # Release means that the accumulated state is
-            # consolidated and becomes the new state.
+            # Release means that the accumulated state is consolidated and becomes the new state.
             # =================================================
 
             new_h = self.consolidate_state(h)
