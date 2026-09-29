@@ -120,7 +120,7 @@ This makes distance part of the state-admission mechanism rather than merely an 
 Energy is derived from the same relational distance:
 
 $$
-E_t=\frac{1}{2}\operatorname{mean}(d_t^2)
+E_t=\frac{1}{2}\,\text{mean}(d_t^2)
 $$
 
 Energy is accumulated into pressure over time.
@@ -150,8 +150,7 @@ When pressure reaches the release region, S-Mamba performs a hard release decisi
 The current prototype consolidates the state by averaging across the internal state dimension:
 
 $$
-new_h =
-\operatorname{mean}_{d_{state}}(h)
+new_h = \text{mean}_{d_{state}}(h)
 $$
 
 The state shape is preserved so that recurrence can continue normally.
