@@ -1,5 +1,5 @@
 # ============================================================
-# S-Mamba V2
+# S-Mamba
 #
 # Refactor:
 # - Continuous wave input

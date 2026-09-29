@@ -1,5 +1,5 @@
 # ============================================
-# S-Mamba V1 — Small Mamba Baseline
+# Small Mamba Baseline
 # Raw Wave → Mamba → Next Value
 # ============================================
 
