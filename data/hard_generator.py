@@ -7,8 +7,8 @@ from tqdm import tqdm
 # Configuration
 # =========================
 
-NUM_SAMPLES = 100
-SEQ_LEN = 1000
+NUM_SAMPLES = 1000
+SEQ_LEN = 100
 
 AMPLITUDE_RANGE = (0.5, 1.0)
 FREQUENCY_RANGE = (1.0, 5.0)

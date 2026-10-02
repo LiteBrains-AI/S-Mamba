@@ -18,7 +18,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, random_split
 
-from data.hard_generator import generate_dataset
+from data.simple_generator import generate_dataset
 from model.s_mamba import SMamba
 
 
