@@ -18,6 +18,7 @@
 #
 # ============================================================
 
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -177,8 +178,6 @@ class SMambaBlock(nn.Module):
     def forward(
         self,
         x,
-        inspect_support=False,
-        inspect_energy=False,
     ):
         """
         Parameters
@@ -269,21 +268,6 @@ class SMambaBlock(nn.Module):
         self.energy.reset()
 
         outputs = []
-
-        # ====================================================
-        # Inspection histories
-        # ====================================================
-
-        support_history = []
-        distance_history = []
-
-        energy_history = []
-        pressure_history = []
-        release_history = []
-
-        released_piece_history = []
-
-        h_norm_history = []
 
         # ====================================================
         # 6. Sequential recurrence
@@ -423,44 +407,6 @@ class SMambaBlock(nn.Module):
 
             outputs.append(y_t)
 
-            # =================================================
-            # INSPECTION
-            # =================================================
-
-            if inspect_support:
-
-                support_history.append(
-                    support.detach()
-                )
-
-                distance_history.append(
-                    distance.detach()
-                )
-
-            if inspect_energy:
-
-                energy_history.append(
-                    energy_t.detach()
-                )
-
-                pressure_history.append(
-                    pressure_t.detach()
-                )
-
-                release_history.append(
-                    release_decision.detach()
-                )
-
-                released_piece_history.append(
-                    new_h.detach()
-                )
-
-                h_norm_history.append(
-                    h.detach().norm(
-                        dim=(1, 2)
-                    )
-                )
-
         # ====================================================
         # 7. Stack Mamba outputs
         # ====================================================
@@ -475,54 +421,6 @@ class SMambaBlock(nn.Module):
         # ====================================================
 
         y = self.out_proj(y)
-
-        # ====================================================
-        # 9. Inspection output
-        # ====================================================
-
-        if inspect_support or inspect_energy:
-
-            result = [y]
-
-            if inspect_support:
-
-                result.extend([
-                    torch.stack(
-                        support_history,
-                        dim=1
-                    ),
-                    torch.stack(
-                        distance_history,
-                        dim=1
-                    )
-                ])
-
-            if inspect_energy:
-
-                result.extend([
-                    torch.stack(
-                        energy_history,
-                        dim=1
-                    ),
-                    torch.stack(
-                        pressure_history,
-                        dim=1
-                    ),
-                    torch.stack(
-                        release_history,
-                        dim=1
-                    ),
-                    torch.stack(
-                        released_piece_history,
-                        dim=1
-                    ),
-                    torch.stack(
-                        h_norm_history,
-                        dim=1
-                    )
-                ])
-
-            return tuple(result)
 
         return y
 
@@ -579,117 +477,17 @@ class SMamba(nn.Module):
     def forward(
         self,
         x,
-        inspect_support=False,
-        inspect_energy=False,
     ):
 
         x = self.input_proj(x)
 
-        all_support = []
-        all_distance = []
-
-        all_energy = []
-        all_pressure = []
-        all_release = []
-        all_released_pieces = []
-        all_h_norm = []
-
         for layer in self.layers:
-
-            layer_result = layer(
-                x,
-                inspect_support=inspect_support,
-                inspect_energy=inspect_energy,
-            )
-
-            # ------------------------------------------------
-            # No inspection
-            # ------------------------------------------------
-
-            if not (
-                inspect_support
-                or inspect_energy
-            ):
-
-                x = layer_result
-
-                continue
-
-            # ------------------------------------------------
-            # Parse inspection output
-            # ------------------------------------------------
-
-            index = 0
-
-            x = layer_result[index]
-
-            index += 1
-
-            if inspect_support:
-
-                all_support.append(
-                    layer_result[index]
-                )
-
-                all_distance.append(
-                    layer_result[index + 1]
-                )
-
-                index += 2
-
-            if inspect_energy:
-
-                all_energy.append(
-                    layer_result[index]
-                )
-
-                all_pressure.append(
-                    layer_result[index + 1]
-                )
-
-                all_release.append(
-                    layer_result[index + 2]
-                )
-
-                all_released_pieces.append(
-                    layer_result[index + 3]
-                )
-
-                all_h_norm.append(
-                    layer_result[index + 4]
-                )
+            x = layer(x)
 
         # ====================================================
         # Final normalization
         # ====================================================
 
         x = self.norm(x)
-
-        # ====================================================
-        # Inspection
-        # ====================================================
-
-        if inspect_support or inspect_energy:
-
-            result = [x]
-
-            if inspect_support:
-
-                result.extend([
-                    all_support,
-                    all_distance
-                ])
-
-            if inspect_energy:
-
-                result.extend([
-                    all_energy,
-                    all_pressure,
-                    all_release,
-                    all_released_pieces,
-                    all_h_norm
-                ])
-
-            return tuple(result)
 
         return x
