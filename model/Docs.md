@@ -206,7 +206,7 @@ Energy is calculated as:
 $$
 \boxed{
 E_t=\frac{1}{2}
-\operatorname{mean}(d_t^2)
+\text{mean}(d_t^2)
 }
 $$
 
@@ -541,7 +541,7 @@ $$
 The timestep outputs are collected into a sequence:
 
 $$
-Y=\operatorname{stack}(y_1,y_2,\ldots,y_L)
+Y=\text{stack}(y_1,y_2,\ldots,y_L)
 $$
 
 with shape:
