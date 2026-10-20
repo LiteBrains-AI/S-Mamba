@@ -1,3 +1,3 @@
-# S-Mamba (adv1)
+# S-Mamba (Adv1)
 
 Advanced S-Mamba

@@ -1,13 +1,17 @@
 # ============================================
-# S-Mamba — Support + Energy Pressure Release
+# S-Mamba Adv1 — Support + Gate
 #
 # Raw Wave → Mamba → Next Value
 #
 # Mechanism:
 #   Support  → state admission
-#   Energy   → relational pressure
-#   Pressure → release event
-#   Release  → state consolidation
+#   Energy   → relational energy
+#   Gate     → selective flow
+#
+# - Support module retained
+# - Scalar relational energy retained
+# - SLayer combines token representation and energy
+# - Learnable admission gate controls information
 # ============================================
 
 

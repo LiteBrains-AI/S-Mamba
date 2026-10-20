@@ -1,5 +1,5 @@
 # ============================================================
-# S-Mamba
+# S-Mamba ADV1
 #
 # Refactor:
 # - Continuous wave input
@@ -8,14 +8,13 @@
 # - No additional learned output gate
 # - No SSM D skip connection
 # - No layer residual/skip connection
-# - Support actively controls state admission
-# - Energy accumulates relational pressure
-# - Energy produces a binary release decision
-# - No ReleaseGate
-# - Release consolidates h using mean
-# - Released state becomes NEW h
-# - No soft h/released_h interpolation
-#
+# - Support module retained
+# - Scalar relational energy retained
+# - SLayer combines token representation and energy
+# - Learnable admission gate controls incoming information
+# - No accumulated pressure
+# - No binary release decision
+# - No state consolidation
 # ============================================================
 
 
@@ -25,6 +24,7 @@ import torch.nn.functional as F
 
 from .support import Support
 from .energy import Energy
+from .s_layer import SLayer
 
 
 # ============================================================
@@ -116,69 +116,33 @@ class SMambaBlock(nn.Module):
         )
 
         # ----------------------------------------------------
-        # 7. Energy / pressure
+        # 7. Scalar energy
         # ----------------------------------------------------
 
         self.energy = Energy()
 
-    # ========================================================
-    # Straight-through binary decision
-    # ========================================================
+        # ----------------------------------------------------
+        # 8. Token-energy interaction
+        # ----------------------------------------------------
 
-    @staticmethod
-    def binary_release_decision(probability):
-        """
-        Forward:
-            Returns a hard 0/1 release decision.
-
-        Backward:
-            Uses the sigmoid probability as the surrogate
-            gradient.
-        """
-
-        hard = (
-            probability >= 0.5
-        ).to(probability.dtype)
-
-        return (
-            hard - probability
-        ).detach() + probability
-
-    # ========================================================
-    # State consolidation
-    # ========================================================
-
-    @staticmethod
-    def consolidate_state(h):
-        """
-        Thin the accumulated state by averaging over the
-        internal state dimension.
-
-        Input:
-            h -> [B, d_inner, d_state]
-
-        Output:
-            new_h -> [B, d_inner, d_state]
-
-        The state shape is preserved so the next Mamba
-        recurrence can continue normally.
-        """
-
-        new_h = h.mean(
-            dim=-1,
-            keepdim=True
+        self.s_layer = SLayer(
+            d_inner=self.d_inner
         )
 
-        return new_h.expand_as(h)
+        # ----------------------------------------------------
+        # 9. Admission gate
+        # ----------------------------------------------------
+
+        self.admission_gate = nn.Linear(
+            self.d_inner,
+            self.d_inner
+        )
 
     # ========================================================
     # Forward
     # ========================================================
 
-    def forward(
-        self,
-        x,
-    ):
+    def forward(self, x):
         """
         Parameters
         ----------
@@ -204,7 +168,8 @@ class SMambaBlock(nn.Module):
             dim=-1
         )
 
-        # z is retained as part of the original Mamba-style projection structure.
+        # Retain the original projection structure.
+        # No additional output gate is used.
 
         del z
 
@@ -253,7 +218,7 @@ class SMambaBlock(nn.Module):
         )
 
         # ====================================================
-        # 5. Initialize h
+        # 5. Initialize state
         # ====================================================
 
         h = torch.zeros(
@@ -264,20 +229,11 @@ class SMambaBlock(nn.Module):
             dtype=x.dtype
         )
 
-        # Reset Energy pressure for this sequence.
-        self.energy.reset()
-
         outputs = []
 
         # ====================================================
         # 6. Sequential recurrence
         # ====================================================
-
-        previous_release = torch.zeros(
-            B,
-            device=x.device,
-            dtype=x.dtype
-        )
 
         for t in range(L):
 
@@ -306,6 +262,32 @@ class SMambaBlock(nn.Module):
             h_before = h
 
             # =================================================
+            # ENERGY
+            # =================================================
+
+            energy_t = self.energy(
+                h_before,
+                x_conv[:, t, :]
+            )
+
+            # =================================================
+            # TOKEN-ENERGY INTERACTION
+            # =================================================
+
+            combined = self.s_layer(
+                x_conv[:, t, :],
+                energy_t
+            )
+
+            # =================================================
+            # ADMISSION GATE
+            # =================================================
+
+            gate = torch.sigmoid(
+                self.admission_gate(combined)
+            )
+
+            # =================================================
             # SUPPORT
             # =================================================
 
@@ -314,86 +296,31 @@ class SMambaBlock(nn.Module):
                 x_conv[:, t, :]
             )
 
-            # ------------------------------------------------
-            # Incoming information
-            # ------------------------------------------------
+            # =================================================
+            # INCOMING INFORMATION
+            # =================================================
 
             incoming = (
                 x_conv[:, t, :].unsqueeze(-1)
                 * dB
             )
 
+            # Preserve the existing support mechanism while allowing the learned gate to control admission.
+
             supported_incoming = (
-                support * incoming
+                support
+                * incoming
+                * gate.unsqueeze(-1)
             )
 
-            # ------------------------------------------------
-            # Mamba state update
-            # ------------------------------------------------
+            # =================================================
+            # MAMBA STATE UPDATE
+            # =================================================
 
             h = (
                 dA * h_before
                 + supported_incoming
             )
-
-            # =================================================
-            # ENERGY / PRESSURE
-            # =================================================
-
-            energy_t, pressure_t, release_probability = (
-                self.energy(
-                    h_before,
-                    x_conv[:, t, :],
-                    reset=previous_release
-                )
-            )
-
-            # =================================================
-            # BINARY RELEASE DECISION
-            # =================================================
-
-            release_decision = (
-                self.binary_release_decision(
-                    release_probability
-                )
-            )
-
-            # =================================================
-            # RELEASE / STATE CONSOLIDATION
-            #
-            # The gate does not destroy h.
-            #
-            # Release means that the accumulated state is consolidated and becomes the new state.
-            # =================================================
-
-            new_h = self.consolidate_state(h)
-
-            # ------------------------------------------------
-            # Hard release event
-            #
-            # Forward:
-            #   no release -> keep h
-            #   release    -> use new_h
-            #
-            # Backward:
-            #   release_probability provides the surrogate
-            #   gradient through the straight-through decision.
-            # ------------------------------------------------
-
-            h = (
-                h
-                + release_decision.view(
-                    B, 1, 1
-                ) * (
-                    new_h - h
-                )
-            )
-
-            # ------------------------------------------------
-            # Save release for next Energy step.
-            # ------------------------------------------------
-
-            previous_release = release_decision
 
             # =================================================
             # READ FROM STATE
@@ -408,7 +335,7 @@ class SMambaBlock(nn.Module):
             outputs.append(y_t)
 
         # ====================================================
-        # 7. Stack Mamba outputs
+        # 7. Stack outputs
         # ====================================================
 
         y = torch.stack(
@@ -474,19 +401,12 @@ class SMamba(nn.Module):
             d_model
         )
 
-    def forward(
-        self,
-        x,
-    ):
+    def forward(self, x):
 
         x = self.input_proj(x)
 
         for layer in self.layers:
             x = layer(x)
-
-        # ====================================================
-        # Final normalization
-        # ====================================================
 
         x = self.norm(x)
 
