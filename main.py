@@ -1,17 +1,18 @@
 # ============================================
-# S-Mamba Adv1 — Support + Gate
+# S-Mamba ADV1 — Support + Gate
 #
 # Raw Wave → Mamba → Next Value
 #
 # Mechanism:
-#   Support  → state admission
-#   Energy   → relational energy
-#   Gate     → selective flow
+#   Support → State admission
+#   Energy  → Relational energy
+#   SLayer  → Representation + energy
+#   Gate    → Selective information flow
 #
-# - Support module retained
-# - Scalar relational energy retained
-# - SLayer combines token representation and energy
-# - Learnable admission gate controls information
+# - Support-based state admission
+# - Scalar relational energy
+# - Energy-conditioned admission gate
+# - Recurrent state update
 # ============================================
 
 
@@ -53,17 +54,15 @@ DEVICE = torch.device(
 
 print("Device:", DEVICE)
 
-# ============================================
-# Generate Dataset
-# ============================================
 
-DATA_DIR = Path("dataset")
+# ============================================================
+# Generate Dataset
+# ============================================================
 
 generate_dataset()
-print(
-    f"\nHard dataset generated in: "
-    f"{DATA_DIR}"
-)
+
+print(f"\nDataset generated in: {DATA_DIR}")
+
 
 # ============================================================
 # Dataset
@@ -71,13 +70,10 @@ print(
 
 class WaveDataset(Dataset):
 
-    def __init__(self, data_dir):
+    def __init__(self, data_dir: Path):
+        self.files = sorted(data_dir.glob("*.npz"))
 
-        self.files = sorted(
-            data_dir.glob("*.npz")
-        )
-
-        if len(self.files) == 0:
+        if not self.files:
             raise RuntimeError(
                 f"No .npz files found in {data_dir}"
             )
@@ -86,43 +82,24 @@ class WaveDataset(Dataset):
         return len(self.files)
 
     def __getitem__(self, index):
+        with np.load(self.files[index]) as data:
+            signal = data["input"].astype(np.float32)
+            target = data["target"].astype(np.float32)
 
-        data = np.load(
-            self.files[index]
-        )
-
-        signal = data["input"].astype(
-            np.float32
-        )
-
-        target = data["target"].astype(
-            np.float32
-        )
-
-        signal = torch.from_numpy(
-            signal
-        ).unsqueeze(-1)
-
-        target = torch.from_numpy(
-            target
-        ).unsqueeze(-1)
+        signal = torch.from_numpy(signal).unsqueeze(-1)
+        target = torch.from_numpy(target).unsqueeze(-1)
 
         return signal, target
 
 
 # ============================================================
-# Load dataset
+# Load Dataset
 # ============================================================
 
 dataset = WaveDataset(DATA_DIR)
 
-train_size = int(
-    TRAIN_SPLIT * len(dataset)
-)
-
-test_size = (
-    len(dataset) - train_size
-)
+train_size = int(TRAIN_SPLIT * len(dataset))
+test_size = len(dataset) - train_size
 
 train_dataset, test_dataset = random_split(
     dataset,
@@ -143,11 +120,11 @@ test_loader = DataLoader(
 
 print("Samples:", len(dataset))
 print("Train:", len(train_dataset))
-print("Test :", len(test_dataset))
+print("Test:", len(test_dataset))
 
 
 # ============================================================
-# Model
+# Initialize Model
 # ============================================================
 
 model = SMamba(
@@ -159,19 +136,18 @@ model = SMamba(
     support_alpha=SUPPORT_ALPHA
 ).to(DEVICE)
 
-print("\nModel:")
-print(model)
-
-print(
-    "\nParameters:",
-    sum(
-        p.numel()
-        for p in model.parameters()
-    )
+parameter_count = sum(
+    parameter.numel()
+    for parameter in model.parameters()
 )
 
+print("\nModel:")
+print(model)
+print(f"\nParameters: {parameter_count:,}")
+
+
 # ============================================================
-# Loss / Optimizer
+# Loss and Optimizer
 # ============================================================
 
 criterion = nn.MSELoss()
@@ -183,42 +159,31 @@ optimizer = torch.optim.AdamW(
 
 
 # ============================================================
-# Training
+# Training Loop
 # ============================================================
 
 for epoch in range(1, EPOCHS + 1):
 
     model.train()
-
     train_loss = 0.0
 
     for inputs, targets in train_loader:
-
         inputs = inputs.to(DEVICE)
         targets = targets.to(DEVICE)
 
         optimizer.zero_grad()
 
-        # Normal forward pass.
-        # Internal Support / Energy / Release
-        # mechanisms remain active.
-
         predictions = model(inputs)
 
-        # Temporary scalar prediction head.
+        # Scalar next-value prediction.
         predictions = predictions[..., :1]
 
-        loss = criterion(
-            predictions,
-            targets
-        )
+        loss = criterion(predictions, targets)
 
         loss.backward()
         optimizer.step()
 
-        train_loss += (
-            loss.item() * inputs.size(0)
-        )
+        train_loss += loss.item() * inputs.size(0)
 
     train_loss /= len(train_dataset)
 
@@ -228,45 +193,36 @@ for epoch in range(1, EPOCHS + 1):
     # ========================================================
 
     model.eval()
-
     test_loss = 0.0
 
     with torch.no_grad():
-
         for inputs, targets in test_loader:
-
             inputs = inputs.to(DEVICE)
             targets = targets.to(DEVICE)
 
             predictions = model(inputs)
-
             predictions = predictions[..., :1]
 
-            loss = criterion(
-                predictions,
-                targets
-            )
+            loss = criterion(predictions, targets)
 
-            test_loss += (
-                loss.item() * inputs.size(0)
-            )
+            test_loss += loss.item() * inputs.size(0)
 
     test_loss /= len(test_dataset)
 
 
     # ========================================================
-    # Save epoch result
+    # Epoch Results
     # ========================================================
 
     print(
-        f"Epoch {epoch:02d} | "
+        f"Epoch {epoch:02d}/{EPOCHS} | "
         f"Train MSE: {train_loss:.6f} | "
         f"Test MSE: {test_loss:.6f}"
     )
 
 
 # ============================================================
-# Done
+# Training Complete
 # ============================================================
 
-print("S-Mamba training complete.")
+print("\nS-Mamba ADV1 training complete.")
