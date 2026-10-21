@@ -225,6 +225,6 @@ for epoch in range(1, EPOCHS + 1):
 # Training Complete
 # ============================================================
 
-print("\nS-Mamba Adv1 training complete.")
+print("\n✅ S-Mamba Adv1 training complete.")
 
-# Tested on Google Colab
+# Tested on Google Colab & Local PC for different sequence length (because of PC RAM crash for longer sequence)
