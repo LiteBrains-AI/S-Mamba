@@ -1,3 +1,6 @@
-__pycache__
-dataset
-inspection
+__pycache__/
+.venv/
+.env/
+
+dataset/
+inspection/
