@@ -1,5 +1,5 @@
 # ============================================
-# S-Mamba ADV1 — Support + Gate
+# S-Mamba Adv1 — Support + Gate
 #
 # Raw Wave → Mamba → Next Value
 #
@@ -225,4 +225,6 @@ for epoch in range(1, EPOCHS + 1):
 # Training Complete
 # ============================================================
 
-print("\nS-Mamba ADV1 training complete.")
+print("\nS-Mamba Adv1 training complete.")
+
+# Tested on Google Colab
