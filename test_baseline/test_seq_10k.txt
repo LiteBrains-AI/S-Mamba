@@ -1,1 +1,1 @@
-Test on sequence length 10k is pending
+Removed due to training speed bottleneck 
