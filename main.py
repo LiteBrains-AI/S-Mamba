@@ -528,3 +528,8 @@ print("\nS-Mamba training complete.")
 print("\nSaved:")
 print("  inspection/training_history.json")
 print("  inspection/s_mamba_inspection.json")
+
+# Our current refactor unintentionally changed the role of the second layer: 
+# instead of processing the original sequence, it processes the first layer's final representation as a single-step sequence.
+# Layer 0: support shape=torch.Size([20, 99, 128, 16]), energy shape=torch.Size([20, 99])
+# Layer 1: support shape=torch.Size([20, 1, 128, 16]), energy shape=torch.Size([20, 1])
