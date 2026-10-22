@@ -180,7 +180,7 @@ The two models were deliberately kept very close in size.
 | Model        | Parameters |
 | ------------ | ---------: |
 | Native Mamba |     64,387 |
-| S-Mamba      |     64,450 |
+| S-Mamba      |     64,515 |
 
 ---
 
@@ -192,39 +192,7 @@ Sequence length 10000.
 
 Device: cuda (On Google Colab)
 
-```text
-Normal Mamba
-Parameters: 64387
-Epoch 01/10 | Train MSE: 0.315914 | Test MSE: 0.233302
-Epoch 02/10 | Train MSE: 0.309436 | Test MSE: 0.215854
-Epoch 03/10 | Train MSE: 0.248930 | Test MSE: 0.173077
-Epoch 04/10 | Train MSE: 0.495278 | Test MSE: 0.154533
-Epoch 05/10 | Train MSE: 0.226316 | Test MSE: 0.188908
-Epoch 06/10 | Train MSE: 0.262229 | Test MSE: 0.197991
-Epoch 07/10 | Train MSE: 0.267705 | Test MSE: 0.196383
-Epoch 08/10 | Train MSE: 0.259101 | Test MSE: 0.183721
-Epoch 09/10 | Train MSE: 0.229699 | Test MSE: 0.147931
-Epoch 10/10 | Train MSE: 0.162363 | Test MSE: 0.092045
-```
-```text
-S-Mamba
-S-Mamba parameters: 64450
-Epoch 01 | Train MSE: 0.470891 | Test MSE: 0.349138
-Epoch 02 | Train MSE: 0.358359 | Test MSE: 0.221367
-Epoch 03 | Train MSE: 0.282800 | Test MSE: 0.170128
-Epoch 04 | Train MSE: 0.190714 | Test MSE: 0.098630
-Epoch 05 | Train MSE: 0.183269 | Test MSE: 0.119663
-Epoch 06 | Train MSE: 0.154639 | Test MSE: 0.075211
-Epoch 07 | Train MSE: 0.113967 | Test MSE: 0.059817
-Epoch 08 | Train MSE: 0.094185 | Test MSE: 0.051473
-Epoch 09 | Train MSE: 0.073875 | Test MSE: 0.036857
-Epoch 10 | Train MSE: 0.052223 | Test MSE: 0.032958
-```
-
-S-Mamba produced approximately **64% lower test MSE** at epoch 10.
-
-However, this is **one run on one synthetic task**. It is evidence that the mechanism is worth investigating, not a general performance claim.
-
+> Uploaded soon
 ---
 
 ### Benchmark Limitation

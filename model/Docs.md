@@ -350,52 +350,102 @@ There is no external reward, policy network, or Q-function. The analogy is speci
 
 ## State Readout
 
-After the release decision, the resulting state is read using the generated \(C_t\) parameter:
+### Previous Implementation: Timestep-Level Readout
 
-$$
-y_t=\sum_j h_{t,j}C_{t,j}
-$$
+The previous implementation generated an output at every timestep using the evolving recurrent state (h_t) and the corresponding generated parameter (C_t):
 
-The timestep outputs are collected:
-
-$$
-Y=[y_1,y_2,\ldots,y_L]
+$$\
+y_t = \sum_j h\_{t,j} C\_{t,j}\
 $$
 
-and passed through the output projection.
+The timestep outputs were collected into a sequence:
 
-The current implementation therefore still exposes a sequence of state-derived outputs.
+$$\
+Y = [y_1, y_2, \ldots, y_L]\
+$$
 
-This is intentional for the current prototype.
+The resulting sequence was then passed through the output projection.
 
-Future versions may investigate how these evolving state representations can be further aggregated, recalled, or processed as higher-level units.
+This approach required collecting and processing separate state-derived outputs across the input sequence.
+
+### Current Implementation: Final-State Readout
+
+The current implementation reads the final recurrent state after processing the input sequence.
+
+Given the final state \(h_L\), the state dimensions are aggregated using a mean operation:
+
+$$
+r = \operatorname{mean}_{j}(h_{L,j})
+$$
+
+The resulting representation is passed through the output projection:
+
+$$
+y = W_{\text{out}}r + b_{\text{out}}
+$$
+
+Unlike the previous implementation, the current readout does not generate and collect a separate output at every timestep. The generated \(C_t\) parameter is no longer used for readout.
+
+**This change is intended to improve execution speed** by eliminating timestep-level output collection and applying the output projection only once per block. However, the actual speed gain, along with any other performance effects, must be established through benchmarking against the previous implementation under comparable conditions.
+
+The benchmark should measure execution time and, where relevant, memory usage to determine whether the simplified readout delivers a measurable improvement without overlooking other performance trade-offs.
+
+### Stacked-Layer Behavior
+
+Because each block now returns a single representation rather than a sequence of timestep outputs, subsequent blocks receive that representation as a single-step input.
+
+Consequently, the first block processes the original input sequence, while subsequent blocks process the representations produced by preceding blocks.
+
+This behavior is a consequence of the current architecture and should be considered when interpreting experimental results.
+
+### Future Directions: Released Intermediate States
+
+The final-state readout is distinct from the intermediate states produced during recurrent state evolution.
+
+During processing, S-Mamba may release and consolidate its internal state. These release events and their associated intermediate states provide a separate avenue for future experimentation.
+
+Potential directions include:
+
+* **Jev discriminative model:** Investigating whether released intermediate states can provide useful signals for discriminative learning.
+* **NCM (Next Concept Modeling):** Exploring whether released states can support concept-oriented prediction and modeling.
+* **State aggregation:** Investigating how multiple released states could be combined into higher-level representations.
+* **State recall and retrieval:** Exploring whether previously released states can be retained and retrieved when relevant.
+* **Higher-level state processing:** Examining whether released intermediate states can serve as meaningful units for downstream models.
+
+These are prospective research directions, not capabilities established by the current implementation. The current readout uses the final recurrent state; it does not yet implement a dedicated pipeline for using released intermediate states in Jev or NCM.
 
 ---
 
 ## Current Design Philosophy
 
-The current S-Mamba prototype deliberately keeps the mechanism small.
+The current S-Mamba prototype deliberately keeps its core mechanism small and experimentally inspectable.
 
-The central chain is:
+The central mechanism follows this chain:
 
+$$\
+\boxed{\
+\text{Distance}\
+\rightarrow\
+\text{Support}\
+\rightarrow\
+\text{Energy}\
+\rightarrow\
+\text{Pressure}\
+\rightarrow\
+\text{Release}\
+\rightarrow\
+\text{Consolidated State}\
+}\
 $$
-\boxed{
-\text{Distance}
-\rightarrow
-\text{Support}
-\rightarrow
-\text{Energy}
-\rightarrow
-\text{Pressure}
-\rightarrow
-\text{Release}
-\rightarrow
-\text{Consolidated State}
-}
-$$
 
-The objective of the current phase is to investigate whether these mechanisms can alter how a Mamba-style recurrent state absorbs and organizes long sequences.
+The objective of the current phase is to investigate whether these mechanisms can alter how a Mamba-style recurrent state absorbs, updates, and organizes information across an input sequence.
 
-The prototype does **not** yet attempt to solve every aspect of memory, recall, embeddings, or adaptive chunking.
+The final-state readout explores a simpler output path, while released intermediate states remain a potential source of information for future modeling approaches.
 
-Those are natural directions for subsequent experiments rather than assumptions built into the current implementation.
+The prototype does **not** yet attempt to solve every aspect of memory, recall, embedding learning, adaptive chunking, or concept modeling.
+
+These remain potential directions for subsequent experiments rather than assumptions built into the current implementation.
+
+The priority is to understand the existing mechanism, measure its performance, and investigate future extensions independently.
+
+---
