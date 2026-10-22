@@ -8,10 +8,8 @@ Test samples  : 20
 
 ---
 
-PS D:\S-Mamba> & C:\Users\HP\AppData\Local\Programs\Python\Python313\python.exe d:/S-Mamba/mamba_baseline.py
-Device: cpu
-Generating hard dataset: 100%|█████████████████████████████████████████████████████████████████████████████████████████| 100/100 [00:00<00:00, 653.78it/s]
-
+Device: cuda
+Generating hard dataset: 100%|██████████| 100/100 [00:00<00:00, 1082.96it/s]
 Hard dataset generated in: dataset
 Total samples : 100
 Train samples : 80
@@ -33,22 +31,33 @@ WaveMamba(
 )
 
 Parameters: 64387
-Epoch 01/10 | Train MSE: 0.322104 | Test MSE: 0.310492
-Epoch 02/10 | Train MSE: 0.321526 | Test MSE: 0.310551
-Epoch 03/10 | Train MSE: 0.320527 | Test MSE: 0.308199
-Epoch 04/10 | Train MSE: 0.316558 | Test MSE: 0.297429
-Epoch 05/10 | Train MSE: 0.299466 | Test MSE: 0.253729
-Epoch 06/10 | Train MSE: 0.233666 | Test MSE: 0.145558
-Epoch 07/10 | Train MSE: 0.214323 | Test MSE: 0.120330
-Epoch 08/10 | Train MSE: 0.132462 | Test MSE: 0.147762
-Epoch 09/10 | Train MSE: 0.156517 | Test MSE: 0.142187
-Epoch 10/10 | Train MSE: 0.134486 | Test MSE: 0.087559
+
+Epoch 01/20 | Train MSE: 0.323920 | Test MSE: 0.268165
+Epoch 02/20 | Train MSE: 0.171750 | Test MSE: 0.013142
+Epoch 03/20 | Train MSE: 0.022118 | Test MSE: 0.016990
+Epoch 04/20 | Train MSE: 0.014025 | Test MSE: 0.009527
+Epoch 05/20 | Train MSE: 0.009563 | Test MSE: 0.007488
+Epoch 06/20 | Train MSE: 0.007059 | Test MSE: 0.005603
+Epoch 07/20 | Train MSE: 0.005905 | Test MSE: 0.005231
+Epoch 08/20 | Train MSE: 0.005511 | Test MSE: 0.004856
+Epoch 09/20 | Train MSE: 0.005102 | Test MSE: 0.004695
+Epoch 10/20 | Train MSE: 0.004950 | Test MSE: 0.004511
+Epoch 11/20 | Train MSE: 0.004819 | Test MSE: 0.004388
+Epoch 12/20 | Train MSE: 0.004722 | Test MSE: 0.004359
+Epoch 13/20 | Train MSE: 0.004662 | Test MSE: 0.004264
+Epoch 14/20 | Train MSE: 0.004572 | Test MSE: 0.004173
+Epoch 15/20 | Train MSE: 0.004489 | Test MSE: 0.004085
+Epoch 16/20 | Train MSE: 0.004382 | Test MSE: 0.004007
+Epoch 17/20 | Train MSE: 0.004305 | Test MSE: 0.003904
+Epoch 18/20 | Train MSE: 0.004192 | Test MSE: 0.003766
+Epoch 19/20 | Train MSE: 0.004050 | Test MSE: 0.003644
+Epoch 20/20 | Train MSE: 0.003901 | Test MSE: 0.003509
 
 
-PS D:\S-Mamba> & C:\Users\HP\AppData\Local\Programs\Python\Python313\python.exe d:/S-Mamba/main.py
-Device: cpu
-Generating hard dataset: 100%|█████████████████████████████████████████████████████████████████████████████████████████| 100/100 [00:00<00:00, 630.42it/s]
+---
 
+Device: cuda
+Generating hard dataset: 100%|██████████| 100/100 [00:00<00:00, 1147.30it/s]
 Hard dataset generated in: dataset
 Samples: 100
 Train: 80
@@ -68,22 +77,29 @@ SMamba(
       (energy): Energy()
     )
   )
-  (norm): LayerNorm((64,), eps=1e-05, elementwise_affine=True, bias=True)
+  (norm): LayerNorm((64,), eps=1e-05, elementwise_affine=True)
 )
+Linear(in_features=64, out_features=1, bias=True)
 
-Parameters: 64450
-Epoch 01 | Train MSE: 0.527693 | Test MSE: 0.461571
-Epoch 02 | Train MSE: 0.452185 | Test MSE: 0.419324
-Epoch 03 | Train MSE: 0.400338 | Test MSE: 0.358554
-Epoch 04 | Train MSE: 0.337762 | Test MSE: 0.300463
-Epoch 05 | Train MSE: 0.280581 | Test MSE: 0.299341
-Epoch 06 | Train MSE: 0.279455 | Test MSE: 0.244183
-Epoch 07 | Train MSE: 0.216808 | Test MSE: 0.186536
-Epoch 08 | Train MSE: 0.163509 | Test MSE: 0.172580
-Epoch 09 | Train MSE: 0.155691 | Test MSE: 0.168069
-Epoch 10 | Train MSE: 0.166083 | Test MSE: 0.163366
-S-Mamba training complete.
+Parameters: 64515
 
-Saved:
-  inspection/training_history.json
-  inspection/s_mamba_inspection.json
+Epoch 01 | Train MSE: 0.272665 | Test MSE: 0.283148
+Epoch 02 | Train MSE: 0.285487 | Test MSE: 0.279347
+Epoch 03 | Train MSE: 0.278842 | Test MSE: 0.357357
+Epoch 04 | Train MSE: 0.278417 | Test MSE: 0.344289
+Epoch 05 | Train MSE: 0.273790 | Test MSE: 0.307314
+Epoch 06 | Train MSE: 0.275928 | Test MSE: 0.289851
+Epoch 07 | Train MSE: 0.275291 | Test MSE: 0.306432
+Epoch 08 | Train MSE: 0.272099 | Test MSE: 0.331916
+Epoch 09 | Train MSE: 0.269339 | Test MSE: 0.322439
+Epoch 10 | Train MSE: 0.262354 | Test MSE: 0.311095
+Epoch 11 | Train MSE: 0.247185 | Test MSE: 0.274856
+Epoch 12 | Train MSE: 0.220097 | Test MSE: 0.236907
+Epoch 13 | Train MSE: 0.152879 | Test MSE: 0.141725
+Epoch 14 | Train MSE: 0.063288 | Test MSE: 0.039818
+Epoch 15 | Train MSE: 0.028261 | Test MSE: 0.053237
+Epoch 16 | Train MSE: 0.081796 | Test MSE: 0.061861
+Epoch 17 | Train MSE: 0.055268 | Test MSE: 0.022526
+Epoch 18 | Train MSE: 0.016992 | Test MSE: 0.027354
+Epoch 19 | Train MSE: 0.018406 | Test MSE: 0.043499
+Epoch 20 | Train MSE: 0.032250 | Test MSE: 0.046779
