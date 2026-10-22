@@ -8,7 +8,7 @@ from tqdm import tqdm
 # =========================
 
 NUM_SAMPLES = 100
-SEQ_LEN = 1000
+SEQ_LEN = 100 # test longer seq in GPU
 
 AMPLITUDE_RANGE = (0.5, 1.0)
 FREQUENCY_RANGE = (1.0, 5.0)
