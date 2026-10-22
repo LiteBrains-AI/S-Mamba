@@ -1,21 +1,22 @@
 # ============================================
 # S-Mamba — Support + Energy Pressure Release
 #
-# Raw Wave → Mamba → Next Value
+# Raw Wave → S-Mamba → Final-State Readout → Next Value
 #
 # Mechanism:
 #   Support  → state admission
 #   Energy   → relational pressure
 #   Pressure → release event
 #   Release  → state consolidation
+#   Final h  → sequence representation
+#   Readout  → next-value prediction
 #
 # Training output:
-#   training_history.json
+#   inspection/training_history.json
 #
 # Post-training inspection:
-#   s_mamba_inspection.json
+#   inspection/s_mamba_inspection.json
 # ============================================
-
 
 import json
 import numpy as np
@@ -37,7 +38,7 @@ DATA_DIR = Path("dataset")
 OUTPUT_DIR = Path("inspection")
 
 BATCH_SIZE = 40
-EPOCHS = 10
+EPOCHS = 40 # Model needs to stabilize itself first!
 
 LEARNING_RATE = 1e-3
 
@@ -50,6 +51,7 @@ N_LAYERS = 2
 SUPPORT_ALPHA = 1.0
 
 TRAIN_SPLIT = 0.8
+RANDOM_SEED = 42
 
 DEVICE = torch.device(
     "cuda" if torch.cuda.is_available() else "cpu"
@@ -57,17 +59,17 @@ DEVICE = torch.device(
 
 print("Device:", DEVICE)
 
-# ============================================
-# Generate Dataset
-# ============================================
 
-DATA_DIR = Path("dataset")
+# ============================================================
+# Generate Dataset
+# ============================================================
 
 generate_dataset()
+
 print(
-    f"\nHard dataset generated in: "
-    f"{DATA_DIR}"
+    f"\nHard dataset generated in: {DATA_DIR}"
 )
+
 
 # ============================================================
 # Dataset
@@ -81,7 +83,7 @@ class WaveDataset(Dataset):
             data_dir.glob("*.npz")
         )
 
-        if len(self.files) == 0:
+        if not self.files:
             raise RuntimeError(
                 f"No .npz files found in {data_dir}"
             )
@@ -91,34 +93,55 @@ class WaveDataset(Dataset):
 
     def __getitem__(self, index):
 
-        data = np.load(
-            self.files[index]
-        )
+        with np.load(self.files[index]) as data:
 
-        signal = data["input"].astype(
-            np.float32
-        )
+            signal = data["input"].astype(
+                np.float32
+            )
 
-        target = data["target"].astype(
-            np.float32
-        )
+            target = data["target"].astype(
+                np.float32
+            )
 
         signal = torch.from_numpy(
-            signal
+            signal.copy()
         ).unsqueeze(-1)
 
         target = torch.from_numpy(
-            target
+            target.copy()
         ).unsqueeze(-1)
 
-        return signal, target
+        # ----------------------------------------------------
+        # Final-state training objective
+        # ----------------------------------------------------
+        #
+        # The model returns one representation per sequence.
+        #
+        # We therefore need one scalar target per sequence.
+        #
+        # Assumption:
+        # The final element of target is the desired
+        # next-value prediction target.
+        #
+        # Verify this convention in hard_generator.py.
+        # ----------------------------------------------------
+
+        next_value = target[-1]
+
+        return signal, next_value
 
 
 # ============================================================
-# Load dataset
+# Load Dataset
 # ============================================================
 
 dataset = WaveDataset(DATA_DIR)
+
+if len(dataset) < 2:
+    raise RuntimeError(
+        "At least two samples are required for "
+        "a train/test split."
+    )
 
 train_size = int(
     TRAIN_SPLIT * len(dataset)
@@ -128,9 +151,20 @@ test_size = (
     len(dataset) - train_size
 )
 
+if train_size == 0 or test_size == 0:
+    raise RuntimeError(
+        "The dataset is too small for the selected "
+        "train/test split."
+    )
+
+split_generator = torch.Generator().manual_seed(
+    RANDOM_SEED
+)
+
 train_dataset, test_dataset = random_split(
     dataset,
-    [train_size, test_size]
+    [train_size, test_size],
+    generator=split_generator
 )
 
 train_loader = DataLoader(
@@ -163,16 +197,33 @@ model = SMamba(
     support_alpha=SUPPORT_ALPHA
 ).to(DEVICE)
 
+# ------------------------------------------------------------
+# Sequence representation -> scalar prediction
+# ------------------------------------------------------------
+#
+# SMamba returns [B, D_MODEL].
+#
+# This head converts the final representation into
+# one next-value prediction per sequence.
+#
+# ------------------------------------------------------------
+
+prediction_head = nn.Linear(
+    D_MODEL,
+    1
+).to(DEVICE)
+
 print("\nModel:")
 print(model)
+print(prediction_head)
 
-print(
-    "\nParameters:",
-    sum(
-        p.numel()
-        for p in model.parameters()
-    )
+parameter_count = (
+    sum(p.numel() for p in model.parameters())
+    + sum(p.numel() for p in prediction_head.parameters())
 )
+
+print("\nParameters:", parameter_count)
+
 
 # ============================================================
 # Loss / Optimizer
@@ -181,7 +232,8 @@ print(
 criterion = nn.MSELoss()
 
 optimizer = torch.optim.AdamW(
-    model.parameters(),
+    list(model.parameters())
+    + list(prediction_head.parameters()),
     lr=LEARNING_RATE
 )
 
@@ -195,6 +247,7 @@ training_history = []
 for epoch in range(1, EPOCHS + 1):
 
     model.train()
+    prediction_head.train()
 
     train_loss = 0.0
 
@@ -205,18 +258,25 @@ for epoch in range(1, EPOCHS + 1):
 
         optimizer.zero_grad()
 
-        # Normal forward pass.
-        # Internal Support / Energy / Release
-        # mechanisms remain active.
+        # ----------------------------------------------------
+        # Final-state representation
+        # Shape: [B, D_MODEL]
+        # ----------------------------------------------------
 
-        predictions = model(
+        representations = model(
             inputs,
             inspect_support=False,
             inspect_energy=False
         )
 
-        # Temporary scalar prediction head.
-        predictions = predictions[..., :1]
+        # ----------------------------------------------------
+        # Next-value prediction
+        # Shape: [B, 1]
+        # ----------------------------------------------------
+
+        predictions = prediction_head(
+            representations
+        )
 
         loss = criterion(
             predictions,
@@ -224,6 +284,7 @@ for epoch in range(1, EPOCHS + 1):
         )
 
         loss.backward()
+
         optimizer.step()
 
         train_loss += (
@@ -232,12 +293,12 @@ for epoch in range(1, EPOCHS + 1):
 
     train_loss /= len(train_dataset)
 
-
     # ========================================================
     # Evaluation
     # ========================================================
 
     model.eval()
+    prediction_head.eval()
 
     test_loss = 0.0
 
@@ -248,13 +309,15 @@ for epoch in range(1, EPOCHS + 1):
             inputs = inputs.to(DEVICE)
             targets = targets.to(DEVICE)
 
-            predictions = model(
+            representations = model(
                 inputs,
                 inspect_support=False,
                 inspect_energy=False
             )
 
-            predictions = predictions[..., :1]
+            predictions = prediction_head(
+                representations
+            )
 
             loss = criterion(
                 predictions,
@@ -267,9 +330,8 @@ for epoch in range(1, EPOCHS + 1):
 
     test_loss /= len(test_dataset)
 
-
     # ========================================================
-    # Save epoch result
+    # Save Epoch Result
     # ========================================================
 
     epoch_result = {
@@ -290,7 +352,7 @@ for epoch in range(1, EPOCHS + 1):
 
 
 # ============================================================
-# Save training history
+# Save Training History
 # ============================================================
 
 OUTPUT_DIR.mkdir(
@@ -300,7 +362,8 @@ OUTPUT_DIR.mkdir(
 
 with open(
     OUTPUT_DIR / "training_history.json",
-    "w"
+    "w",
+    encoding="utf-8"
 ) as f:
 
     json.dump(
@@ -311,8 +374,10 @@ with open(
 
 
 # ============================================================
-# Post-training inspection
+# Post-Training Inspection
 # ============================================================
+#
+# Collected per timestep:
 #
 #   support_mean
 #   distance_mean
@@ -324,6 +389,7 @@ with open(
 # ============================================================
 
 model.eval()
+prediction_head.eval()
 
 inspection_records = []
 
@@ -334,6 +400,7 @@ with torch.no_grad():
     for inputs, targets in test_loader:
 
         inputs = inputs.to(DEVICE)
+        targets = targets.to(DEVICE)
 
         result = model(
             inputs,
@@ -342,7 +409,7 @@ with torch.no_grad():
         )
 
         (
-            outputs,
+            representations,
             all_support,
             all_distance,
             all_energy,
@@ -352,12 +419,25 @@ with torch.no_grad():
             all_h_norm
         ) = result
 
+        predictions = prediction_head(
+            representations
+        )
+
         batch_size = inputs.size(0)
 
         for b in range(batch_size):
 
             record = {
                 "sample": int(global_sample_index),
+
+                "target": float(
+                    targets[b].item()
+                ),
+
+                "prediction": float(
+                    predictions[b].item()
+                ),
+
                 "layers": []
             }
 
@@ -415,18 +495,21 @@ with torch.no_grad():
                     layer_record
                 )
 
-            inspection_records.append(record)
+            inspection_records.append(
+                record
+            )
 
             global_sample_index += 1
 
 
 # ============================================================
-# Save inspection
+# Save Inspection
 # ============================================================
 
 with open(
     OUTPUT_DIR / "s_mamba_inspection.json",
-    "w"
+    "w",
+    encoding="utf-8"
 ) as f:
 
     json.dump(
@@ -440,9 +523,8 @@ with open(
 # Done
 # ============================================================
 
-print("S-Mamba training complete.")
-print()
+print("\nS-Mamba training complete.")
 
-print("Saved:")
+print("\nSaved:")
 print("  inspection/training_history.json")
 print("  inspection/s_mamba_inspection.json")

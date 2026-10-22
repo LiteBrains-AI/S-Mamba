@@ -1,5 +1,5 @@
 # ============================================================
-# S-Mamba
+# S-Mamba — Final-State Readout
 #
 # Refactor:
 # - Continuous wave input
@@ -15,7 +15,8 @@
 # - Release consolidates h using mean
 # - Released state becomes NEW h
 # - No soft h/released_h interpolation
-#
+# - No timestep output collection or stacking
+# - Final recurrent state -> output projection
 # ============================================================
 
 import torch
@@ -47,7 +48,7 @@ class SMambaBlock(nn.Module):
         self.d_inner = d_model * expand
 
         # ----------------------------------------------------
-        # 1. Mamba input projection
+        # 1. Input projection
         # ----------------------------------------------------
 
         self.in_proj = nn.Linear(
@@ -98,7 +99,7 @@ class SMambaBlock(nn.Module):
         )
 
         # ----------------------------------------------------
-        # 5. Output projection
+        # 5. Final-state output projection
         # ----------------------------------------------------
 
         self.out_proj = nn.Linear(
@@ -121,19 +122,11 @@ class SMambaBlock(nn.Module):
         self.energy = Energy()
 
     # ========================================================
-    # Straight-through binary decision
+    # Straight-through binary release decision
     # ========================================================
 
     @staticmethod
     def binary_release_decision(probability):
-        """
-        Forward:
-            Returns a hard 0/1 release decision.
-
-        Backward:
-            Uses the sigmoid probability as the surrogate
-            gradient.
-        """
 
         hard = (
             probability >= 0.5
@@ -149,19 +142,8 @@ class SMambaBlock(nn.Module):
 
     @staticmethod
     def consolidate_state(h):
-        """
-        Thin the accumulated state by averaging over the
-        internal state dimension.
 
-        Input:
-            h -> [B, d_inner, d_state]
-
-        Output:
-            new_h -> [B, d_inner, d_state]
-
-        The state shape is preserved so the next Mamba
-        recurrence can continue normally.
-        """
+        # h: [B, d_inner, d_state]
 
         new_h = h.mean(
             dim=-1,
@@ -189,13 +171,15 @@ class SMambaBlock(nn.Module):
         Returns
         -------
         y:
-            [B, L, d_model]
+            [B, d_model]
+
+        The block reads out only the final recurrent state.
         """
 
         B, L, _ = x.shape
 
         # ====================================================
-        # 1. Mamba input projection
+        # 1. Input projection
         # ====================================================
 
         projected = self.in_proj(x)
@@ -205,8 +189,7 @@ class SMambaBlock(nn.Module):
             dim=-1
         )
 
-        # z is retained as part of the original Mamba-style projection structure.
-
+        # The second projection branch is intentionally unused.
         del z
 
         # ====================================================
@@ -217,6 +200,7 @@ class SMambaBlock(nn.Module):
 
         x_conv = self.conv1d(x_conv)
 
+        # Keep the original sequence length.
         x_conv = x_conv[:, :, :L]
 
         x_conv = x_conv.transpose(1, 2)
@@ -236,10 +220,14 @@ class SMambaBlock(nn.Module):
             1:1 + self.d_state
         ]
 
+        # Retained for comparison with the original readout.
+        # The final-state readout does not currently use C_t.
         C_t = ssm_params[
             ...,
             1 + self.d_state:
         ]
+
+        del C_t
 
         dt = F.softplus(
             self.dt_proj(dt_raw)
@@ -254,7 +242,7 @@ class SMambaBlock(nn.Module):
         )
 
         # ====================================================
-        # 5. Initialize h
+        # 5. Initialize recurrent state
         # ====================================================
 
         h = torch.zeros(
@@ -265,13 +253,11 @@ class SMambaBlock(nn.Module):
             dtype=x.dtype
         )
 
-        # Reset Energy pressure for this sequence.
+        # Reset energy pressure for this sequence.
         self.energy.reset()
 
-        outputs = []
-
         # ====================================================
-        # Inspection histories
+        # 6. Inspection histories
         # ====================================================
 
         support_history = []
@@ -282,11 +268,10 @@ class SMambaBlock(nn.Module):
         release_history = []
 
         released_piece_history = []
-
         h_norm_history = []
 
         # ====================================================
-        # 6. Sequential recurrence
+        # 7. Sequential recurrence
         # ====================================================
 
         previous_release = torch.zeros(
@@ -344,7 +329,7 @@ class SMambaBlock(nn.Module):
             )
 
             # ------------------------------------------------
-            # Mamba state update
+            # Recurrent state update
             # ------------------------------------------------
 
             h = (
@@ -375,53 +360,20 @@ class SMambaBlock(nn.Module):
             )
 
             # =================================================
-            # RELEASE / STATE CONSOLIDATION
-            #
-            # The gate does not destroy h.
-            #
-            # Release means that the accumulated state is consolidated and becomes the new state.
+            # STATE CONSOLIDATION
             # =================================================
 
             new_h = self.consolidate_state(h)
 
-            # ------------------------------------------------
-            # Hard release event
-            #
-            # Forward:
-            #   no release -> keep h
-            #   release    -> use new_h
-            #
-            # Backward:
-            #   release_probability provides the surrogate
-            #   gradient through the straight-through decision.
-            # ------------------------------------------------
-
+            # No release -> retain h.
+            # Release    -> replace h with consolidated state.
             h = (
                 h
-                + release_decision.view(
-                    B, 1, 1
-                ) * (
-                    new_h - h
-                )
+                + release_decision.view(B, 1, 1)
+                * (new_h - h)
             )
-
-            # ------------------------------------------------
-            # Save release for next Energy step.
-            # ------------------------------------------------
 
             previous_release = release_decision
-
-            # =================================================
-            # READ FROM STATE
-            # =================================================
-
-            y_t = torch.sum(
-                h
-                * C_t[:, t, :].unsqueeze(1),
-                dim=-1
-            )
-
-            outputs.append(y_t)
 
             # =================================================
             # INSPECTION
@@ -462,19 +414,22 @@ class SMambaBlock(nn.Module):
                 )
 
         # ====================================================
-        # 7. Stack Mamba outputs
+        # 8. FINAL-STATE READOUT
+        # ====================================================
+        #
+        # h:       [B, d_inner, d_state]
+        # h_final: [B, d_inner]
+        # y:       [B, d_model]
+        #
+        # No outputs list.
+        # No torch.stack(outputs).
         # ====================================================
 
-        y = torch.stack(
-            outputs,
-            dim=1
+        h_final = h.mean(
+            dim=-1
         )
 
-        # ====================================================
-        # 8. Output projection
-        # ====================================================
-
-        y = self.out_proj(y)
+        y = self.out_proj(h_final)
 
         # ====================================================
         # 9. Inspection output
@@ -554,7 +509,7 @@ class SMamba(nn.Module):
         )
 
         # ----------------------------------------------------
-        # Mamba layers
+        # S-Mamba blocks
         # ----------------------------------------------------
 
         self.layers = nn.ModuleList([
@@ -582,7 +537,22 @@ class SMamba(nn.Module):
         inspect_support=False,
         inspect_energy=False,
     ):
+        """
+        Parameters
+        ----------
+        x:
+            [B, L, 1]
 
+        Returns
+        -------
+        y:
+            [B, d_model]
+
+        This version produces one final representation per
+        input sequence rather than one output per timestep.
+        """
+
+        # [B, L, 1] -> [B, L, d_model]
         x = self.input_proj(x)
 
         all_support = []
@@ -596,6 +566,9 @@ class SMamba(nn.Module):
 
         for layer in self.layers:
 
+            # Every block expects a sequence.
+            # Later blocks receive the previous block's
+            # final representation as a length-1 sequence.
             layer_result = layer(
                 x,
                 inspect_support=inspect_support,
@@ -611,7 +584,7 @@ class SMamba(nn.Module):
                 or inspect_energy
             ):
 
-                x = layer_result
+                x = layer_result.unsqueeze(1)
 
                 continue
 
@@ -621,7 +594,7 @@ class SMamba(nn.Module):
 
             index = 0
 
-            x = layer_result[index]
+            x = layer_result[index].unsqueeze(1)
 
             index += 1
 
@@ -659,15 +632,14 @@ class SMamba(nn.Module):
                     layer_result[index + 4]
                 )
 
-        # ====================================================
-        # Final normalization
-        # ====================================================
+        # [B, 1, d_model] -> [B, d_model]
+        x = x.squeeze(1)
 
         x = self.norm(x)
 
-        # ====================================================
-        # Inspection
-        # ====================================================
+        # ----------------------------------------------------
+        # Inspection output
+        # ----------------------------------------------------
 
         if inspect_support or inspect_energy:
 
@@ -693,3 +665,5 @@ class SMamba(nn.Module):
             return tuple(result)
 
         return x
+
+# Note: Released representations `h` could be used to train Jev alike discriminative models
